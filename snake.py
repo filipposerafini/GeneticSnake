@@ -250,18 +250,20 @@ class Game:
             snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5)
 
     def update(self, fps):
-        self.clock.tick(fps)
+        if fps:
+            self.clock.tick(fps)
         for snake in self.snakes:
             if not snake.dead:
                 prev_distance = snake.get_apple_distance()
                 snake.move()
-                # snake.score -= 1
+                snake.score += 1
                 if snake.hit_self() or snake.hit_border():
+                    snake.score -= 100000
                     snake.dead = True
                 else:
                     distance = snake.get_apple_distance()
                     if snake.eat_apple():
-                        snake.score += 1
+                        snake.score += 1000
                         snake.apple = Apple(snake)
 
     def render(self):
@@ -295,12 +297,14 @@ class Game:
                 else:
                     pass
             if action == 1:
-                self.snakes[0].turn_right()
+                for i in range(4):
+                    self.snakes[i].turn_right()
             elif action == 2:
-                self.snakes[0].turn_left()
+                for i in range(4):
+                    self.snakes[i].turn_left()
             self.update(5)
-            print(self.snakes[0].observe_apple(), self.snakes[0].observe_obstacle())
-            print(self.snakes[0].score)
+            front, right, left = self.snakes[0].observe_obstacle()
+            print('%.2f, %.2f, %.2f' % (front, right, left))
             if self.snakes[0].dead:
                 self.stop = True
         else:
@@ -311,5 +315,6 @@ class Game:
 
 if __name__ == '__main__':
     game = Game()
-    game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 5))
+    for _ in range(4):
+        game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 25))
     game.play()

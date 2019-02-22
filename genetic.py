@@ -4,12 +4,12 @@ import nn
 import snake
 from operator import attrgetter
 
-POPULATION_SIZE = 500
-PARENTS_POOL_SIZE = 5
-MUTATION_COUNT = 10
-MUTATION_PROBABILITY = 0.20
-WAIT = 300
-FPS = 1000
+POPULATION_SIZE = 1000
+PARENTS_POOL_SIZE = 50
+MUTATION_COUNT = 6
+MUTATION_PROBABILITY = 0.2
+WAIT_STEPS = 300
+FPS = None
 
 # COLORS
 class colors:
@@ -31,9 +31,11 @@ def calculate_fitness(population):
     for _ in population:
         game.snakes.append(snake.Snake(snake.CELL_COUNT/2, snake.CELL_COUNT/2, 5))
 
-    count = 0
-    while count < WAIT:
+    step = 0
+    while step < WAIT_STEPS:
         game.render()
+        best = max(game.snakes, key=attrgetter('score'))
+        old_apple = best.apple
         for i in range(len(population)):
             distance, angle = game.snakes[i].observe_apple()
             obstacle_front, obstacle_right, obstacle_left = game.snakes[i].observe_obstacle()
@@ -43,19 +45,18 @@ def calculate_fitness(population):
                 game.snakes[i].turn_right()
             elif action == 2:
                 game.snakes[i].turn_left()
-        best = max(game.snakes, key=attrgetter('score'))
-        old_apple = best.apple
         game.update(FPS)
         game.stop = True
         for s in game.snakes:
             if not s.dead:
                 game.stop = False
+                break
         if game.stop:
             break
         best = max(game.snakes, key=attrgetter('score'))
         if old_apple is not best.apple:
-            count = 0
-        count += 1
+            step = 0
+        step += 1
     fitness = []
     for s in game.snakes:
         fitness.append(s.score)
@@ -90,23 +91,19 @@ def mutate(offspring):
 def genetic_algorithm(population):
     fitness = calculate_fitness(population)
     parents_pool, parents_fitness = select_parents(population, fitness, PARENTS_POOL_SIZE)
-    print(colors.BOLD + colors.GREEN + "Generation fitness: " + colors.END + colors.BOLD + str(np.average(parents_fitness)))
-    print(colors.END)
+    print(colors.BOLD, end='')
+    print('{: ^100}'.format(colors.GREEN + 'Generation fitness: ' + colors.END + colors.BOLD + str(np.average(parents_fitness))))
+    print(colors.END, end='')
     next_population = parents_pool
-    mutations = 0
     while len(next_population) < POPULATION_SIZE:
         parents = random.sample(parents_pool, 2)
         mother = parents[0]
         father = parents[1]
         offspring = crossover(mother, father)
         if random.random() < MUTATION_PROBABILITY:
-            mutations += 1
             next_population.append(mutate(offspring))
         else:
             next_population.append(offspring)
-    print(colors.BOLD + colors.BLUE + "Mutation percentage: " +
-            colors.END + colors.BOLD + "%.2f%%" % ((mutations/POPULATION_SIZE)*100))
-    print(colors.END, end='')
     return next_population[:POPULATION_SIZE]
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 import numpy as np
 
 INPUTS = 5
-HIDDEN1 = 7
+HIDDEN1 = 6
 HIDDEN2 = 4
 OUTPUTS = 3
 
