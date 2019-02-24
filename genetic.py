@@ -97,7 +97,6 @@ def mutate(offspring):
 def genetic_algorithm(population):
     fitness = calculate_fitness(population)
     parents_pool, parents_fitness = select_parents(population, fitness, PARENTS_POOL_SIZE)
-    plot_update(parents_fitness)
     avg_fit = np.average(parents_fitness)
     print(colors.BOLD, end='')
     print('{: ^100}'.format(colors.GREEN + 'Generation fitness: ' + colors.END + colors.BOLD + str(avg_fit)))
@@ -112,7 +111,7 @@ def genetic_algorithm(population):
             next_population.append(mutate(offspring))
         else:
             next_population.append(offspring)
-    return next_population[:POPULATION_SIZE]
+    return next_population[:POPULATION_SIZE], parents_fitness
 
 def plot_update(parents_fitness):
     FITNESS_HISTORY[0].append(np.average(parents_fitness))
@@ -140,5 +139,6 @@ if __name__ == '__main__':
         print(colors.BOLD)
         print('{:-^100}'.format(' Generation # ' + colors.YELLOW + str(generation) + ' ' + colors.END + colors.BOLD))
         print(colors.END)
-        next_population = genetic_algorithm(population)
+        next_population, parents_fitness = genetic_algorithm(population)
+        plot_update(parents_fitness)
         population = next_population
