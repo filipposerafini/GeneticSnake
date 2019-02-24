@@ -7,14 +7,19 @@ OUTPUTS = 3
 
 class NeuralNetwork:
 
-    def __init__(self):
-        self.weights = np.random.rand(INPUTS*HIDDEN1 + HIDDEN1*HIDDEN2 + HIDDEN2*OUTPUTS) * 2 - 1
+    def __init__(self, inputs=INPUTS, outputs=OUTPUTS, h_layers=[HIDDEN1, HIDDEN2]):
+        self.layers = [inputs] + h_layers + [outputs]
+        self.size = 0
+        for i in range(len(self.layers) - 1):
+            self.size += self.layers[i] * self.layers[i + 1]
+        self.weights = np.random.rand(self.size) * 2 - 1
 
     def get_weights(self, start, input_layer, output_layer):
         return self.weights[start:start + input_layer*output_layer].reshape(input_layer, output_layer)
 
     def softmax(self, z):
-        return np.exp(z.T) / np.sum(np.exp(z.T), axis=1).reshape(-1, 1)
+        e_z = np.exp(z - np.max(z))
+        return e_z / e_z.sum(axis=0)
 
     def relu(self, z):
         return z * (z > 0)
@@ -28,5 +33,5 @@ class NeuralNetwork:
         Z2 = np.matmul(A1, self.get_weights(INPUTS*HIDDEN1, HIDDEN1, HIDDEN2))
         A2 = self.relu(Z2)
         Z3 = np.matmul(A2, self.get_weights(INPUTS*HIDDEN1 + HIDDEN1*HIDDEN2, HIDDEN2, OUTPUTS))
-        A3 = self.relu(Z3)
+        A3 = self.softmax(Z3)
         return A3

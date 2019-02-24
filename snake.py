@@ -36,12 +36,11 @@ class Apple:
     def draw(self, surface, cell_size):
         body = pygame.Surface((cell_size, cell_size))
         body.fill(RED)
-        surface.blit(body, (self.x * cell_size, self.y * cell_size))
+        surface.blit(body, ((self.x + 1) * cell_size, (self.y + 1) * cell_size))
 
 class Snake:
 
-    def __init__(self, x, y, length, **kwargs):
-        self.debug = False
+    def __init__(self, x, y, length):
         self.x = [x]
         self.y = [y]
         self.length = length
@@ -52,11 +51,7 @@ class Snake:
         self.apple = Apple(self)
         self.score = 0
         self.dead = False
-        for key in kwargs:
-            if key == "debug":
-                self.debug = kwargs[key]
-                print("Snake debug ON\n" if self.debug else "", end='')
-        
+
     def turn_right(self):
         self.direction += 1
         if self.direction == 4:
@@ -97,9 +92,6 @@ class Snake:
             self.x.append(self.x[self.length - 1])
             self.y.append(self.y[self.length - 1])
             self.length += 1
-
-    def get_apple_distance(self):
-        return math.sqrt(abs(pow(abs(self.x[0] - self.apple.x), 2) + pow(abs(self.y[0] - self.apple.y), 2)))
 
     def eat_apple(self):
         if self.collide(self.apple.x, self.apple.y):
@@ -192,128 +184,21 @@ class Snake:
                         left = abs(distance)
         if front < 0:
             front = 0
-        return [Point(self, distance=front, direction=Point.FRONT), 
+        return [Point(self, distance=front, direction=Point.FRONT),
                Point(self, distance=right, direction=Point.RIGHT),
                Point(self, distance=left, direction=Point.LEFT)]
-        #return (front / CELL_COUNT)*2 - 1, (right / CELL_COUNT)*2 - 1, (left / CELL_COUNT)*2 - 1
 
-    def draw(self, surface, cell_size):
+    def draw(self, surface, cell_size, debug=False):
         body = pygame.Surface((cell_size, cell_size))
         body.fill(GREEN)
         for i in range(0, self.length):
-            surface.blit(body, (self.x[i] * cell_size, self.y[i] * cell_size))
-        if self.debug:
+            surface.blit(body, ((self.x[i] + 1) * cell_size, (self.y[i] + 1) * cell_size))
+        if debug:
             pts = pygame.Surface((cell_size, cell_size))
             pts.fill(MAGENTA)
             points = sorted(self.observe_obstacle(), key=lambda pt: pt.direction)
             for point in points:
-                surface.blit(pts, tuple([cell_size * coord for coord in point.to_absolute()]))
-
-    def draw_obstacle(self, surface, cell_size, index):
-        pass
-
-class Game:
-
-    def __init__(self, **kwargs):
-        self.hidden = False
-        for key in kwargs:
-            if key == "hidden":
-                self.hidden = kwargs[key]
-        
-        pygame.init()
-        pygame.display.set_caption('Snake - The Genetic Algorithm')
-        icon = pygame.image.load('resources/icon.png')
-        pygame.display.set_icon(icon)
-
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
-        self.cell_size = int(pygame.display.Info().current_w / 100)
-        self.width = CELL_COUNT * self.cell_size
-        self.height = CELL_COUNT * self.cell_size
-        self.clock = pygame.time.Clock()
-
-        if not self.hidden: 
-            self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
-            self.screen.fill(BLACK)
-
-        self.snakes = []
-        self.stop = False
-
-    def reset(self):
-        self.stop = False
-        for snake in self.snakes:
-            snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5, debug=DEBUG_ENABLE)
-
-    def update(self, fps):
-        if fps:
-            self.clock.tick(fps)
-        for snake in self.snakes:
-            if not snake.dead:
-                prev_distance = snake.get_apple_distance()
-                snake.move()
-                if snake.hit_self() or snake.hit_border():
-                    snake.dead = True
-                else:
-                    distance = snake.get_apple_distance()
-                    if snake.eat_apple():
-                        snake.score += 1
-                        snake.apple = Apple(snake)
-
-    def render(self, debug=False):
-        self.screen.fill(BLACK)
-        best = max(self.snakes, key=attrgetter('score'))
-        best.draw(self.screen, self.cell_size)
-        best.apple.draw(self.screen, self.cell_size)
-        if debug:
-            best.draw_obstacle(self.screen, self.cell_size)
-        pygame.display.flip()
-
-    def play(self):
-        while not self.stop:
-            self.render(debug=True)
-            action = 0
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.end()
-                    return
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == K_RIGHT:
-                        action = 1
-                        break
-                    elif event.key == K_LEFT:
-                        action = 2
-                        break
-                    elif event.key == K_ESCAPE:
-                        self.end()
-                        return
-                else:
-                    pass
-            if action == 1:
-                for i in range(4):
-                    self.snakes[i].turn_right()
-            elif action == 2:
-                for i in range(4):
-                    self.snakes[i].turn_left()
-            self.update(1)
-            for snake in self.snakes:
-                pts = snake.observe_obstacle()
-                for pt in pts:
-                    pt.to_relative()
-                pts = sorted(pts, key=lambda pt: pt.direction)
-            print("Obstacles: ", pts[0], pts[1], pts[2])
-            apple = snake.observe_apple()
-            print("Apple: ", apple.to_absolute(), apple)
-            apple = snake.observe_apple().to_norm_relative()
-            obstacles = [obstacle.to_norm_relative() for obstacle in snake.observe_obstacle()]
-            inputs = [apple[0], apple[1], obstacles[0][0], obstacles[1][0], obstacles[2][0]]
-            print(inputs)
-            if self.snakes[0].dead:
-                self.stop = True
-        else:
-            self.end()
-
-    def end(self):
-        pygame.quit()
-
+                surface.blit(pts, tuple([(coord + 1) * cell_size for coord in point.to_absolute()]))
 
 class Point:
 
@@ -349,34 +234,124 @@ class Point:
 
     def to_norm_relative(self):
         distance, direction = self.to_relative()
-        return (distance/CELL_COUNT, direction/4)
+        return (distance / CELL_COUNT, direction / 4)
 
     def _relative(self):
-        #slick shit
         x_rel = self.x - self.snake.x[0]
         y_rel = self.y - self.snake.y[0]
         self.distance = round(math.sqrt(x_rel*x_rel + y_rel*y_rel), self._c)
         angle = math.atan2(y_rel, x_rel)
         if angle < 0:
-            angle = 2*math.pi+angle 
+            angle = 2*math.pi+angle
         self.direction = round(2 * angle / math.pi - self.snake.direction, self._c)
         if self.direction >= 4:
             self.direction -= 4
         if self.direction < 0:
             self.direction += 4
-        
+
     def _absolute(self):
-        #slick shit
         angle = self.direction * math.pi / 2
-        absolute_angle = angle + (math.pi/2) * self.snake.direction
+        absolute_angle = angle + (math.pi / 2) * self.snake.direction
         self.x = round(self.snake.x[0] + self.distance * math.cos(absolute_angle), self._c)
         self.y = round(self.snake.y[0] + self.distance * math.sin(absolute_angle), self._c)
 
     def __str__(self):
         return str(self.to_relative())
 
+class Game:
+
+    def __init__(self, hidden=False):
+        self.hidden = hidden
+
+        if not hidden:
+            pygame.init()
+            pygame.display.set_caption('Snake - The Genetic Algorithm')
+            icon = pygame.image.load('resources/icon.png')
+            pygame.display.set_icon(icon)
+
+            self.cell_size = int(pygame.display.Info().current_w / 100)
+            self.width = CELL_COUNT * self.cell_size + 2 * self.cell_size
+            self.height = CELL_COUNT * self.cell_size + 2 * self.cell_size
+            self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
+            self.clock = pygame.time.Clock()
+
+            self.screen.fill(BLACK)
+
+        self.snakes = []
+        self.stop = False
+
+    def reset(self):
+        self.stop = False
+        for snake in self.snakes:
+            snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5)
+
+    def update(self, fps):
+        if fps:
+            self.clock.tick(fps)
+        for snake in self.snakes:
+            if not snake.dead:
+                snake.move()
+                if snake.hit_self() or snake.hit_border():
+                    snake.dead = True
+                else:
+                    if snake.eat_apple():
+                        snake.score += 1
+                        snake.apple = Apple(snake)
+
+    def render(self, debug=False):
+        if self.hidden:
+            return
+        self.screen.fill(BLACK)
+        pygame.draw.rect(self.screen, WHITE, Rect(0, 0, self.width, self.height), self.cell_size*2)
+        best = max(self.snakes, key=attrgetter('score'))
+        best.draw(self.screen, self.cell_size, debug)
+        best.apple.draw(self.screen, self.cell_size)
+        pygame.display.flip()
+
+    def play(self):
+        while not self.stop:
+            self.render(debug=DEBUG_ENABLE)
+            action = 0
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.end()
+                    return
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == K_RIGHT:
+                        action = 1
+                        break
+                    elif event.key == K_LEFT:
+                        action = 2
+                        break
+                    elif event.key == K_ESCAPE:
+                        self.end()
+                        return
+                else:
+                    pass
+            player = self.snakes[0]
+            if action == 1:
+                player.turn_right()
+            elif action == 2:
+                player.turn_left()
+            self.update(5)
+
+            pts = player.observe_obstacle()
+            for pt in pts:
+                pt.to_relative()
+            pts = sorted(pts, key=lambda pt: pt.direction)
+            apple = player.observe_apple().to_norm_relative()
+            obstacles = [obstacle.to_norm_relative() for obstacle in player.observe_obstacle()]
+            inputs = [apple[0], apple[1], obstacles[0][0], obstacles[1][0], obstacles[2][0]]
+            print(inputs)
+            if player.dead:
+                self.stop = True
+        else:
+            self.end()
+
+    def end(self):
+        pygame.quit()
+
 if __name__ == '__main__':
     game = Game()
-    for _ in range(4):
-        game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 25, debug=DEBUG_ENABLE))
+    game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 10))
     game.play()
