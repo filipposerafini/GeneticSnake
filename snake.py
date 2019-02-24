@@ -33,19 +33,10 @@ class Apple:
                 if self.x == snake.x[i] and self.y == snake.y[i]:
                     retry = True
 
-    def draw(self, surface, cell_size, index):
+    def draw(self, surface, cell_size):
         body = pygame.Surface((cell_size, cell_size))
         body.fill(RED)
-        x = 0
-        y = 0
-        if index == 1:
-            x = CELL_COUNT*cell_size
-        elif index == 2:
-            y = CELL_COUNT*cell_size
-        elif index == 3:
-            x = CELL_COUNT*cell_size
-            y = CELL_COUNT*cell_size
-        surface.blit(body, (self.x * cell_size + x, self.y * cell_size + y))
+        surface.blit(body, (self.x * cell_size, self.y * cell_size))
 
 class Snake:
 
@@ -206,26 +197,20 @@ class Snake:
                Point(self, distance=left, direction=Point.LEFT)]
         #return (front / CELL_COUNT)*2 - 1, (right / CELL_COUNT)*2 - 1, (left / CELL_COUNT)*2 - 1
 
-    def draw(self, surface, cell_size, index):
+    def draw(self, surface, cell_size):
         body = pygame.Surface((cell_size, cell_size))
         body.fill(GREEN)
-        x = 0
-        y = 0
-        if index == 1:
-            x = CELL_COUNT*cell_size
-        elif index == 2:
-            y = CELL_COUNT*cell_size
-        elif index == 3:
-            x = CELL_COUNT*cell_size
-            y = CELL_COUNT*cell_size
         for i in range(0, self.length):
-            surface.blit(body, (self.x[i] * cell_size + x, self.y[i] * cell_size + y))
+            surface.blit(body, (self.x[i] * cell_size, self.y[i] * cell_size))
         if self.debug:
             pts = pygame.Surface((cell_size, cell_size))
             pts.fill(MAGENTA)
             points = sorted(self.observe_obstacle(), key=lambda pt: pt.direction)
             for point in points:
                 surface.blit(pts, tuple([cell_size * coord for coord in point.to_absolute()]))
+
+    def draw_obstacle(self, surface, cell_size, index):
+        pass
 
 class Game:
 
@@ -240,9 +225,10 @@ class Game:
         icon = pygame.image.load('resources/icon.png')
         pygame.display.set_icon(icon)
 
-        self.cell_size = int(pygame.display.Info().current_w / 125)
-        self.width = CELL_COUNT * self.cell_size * 2
-        self.height = CELL_COUNT * self.cell_size * 2
+        self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
+        self.cell_size = int(pygame.display.Info().current_w / 100)
+        self.width = CELL_COUNT * self.cell_size
+        self.height = CELL_COUNT * self.cell_size
         self.clock = pygame.time.Clock()
 
         if not self.hidden: 
@@ -272,21 +258,18 @@ class Game:
                         snake.score += 1
                         snake.apple = Apple(snake)
 
-    def render(self):
-        if self.hidden:
-            return
+    def render(self, debug=False):
         self.screen.fill(BLACK)
-        pygame.draw.line(self.screen, WHITE, (self.width / 2, 0), (self.width / 2, self.height), 5)
-        pygame.draw.line(self.screen, WHITE, (0, self.height / 2), (self.width, self.height / 2), 5)
-        snakes = sorted(self.snakes, key=attrgetter('score'))[::-1]
-        for i in range(4):
-            snakes[i].draw(self.screen, self.cell_size, i)
-            snakes[i].apple.draw(self.screen, self.cell_size, i)
+        best = max(self.snakes, key=attrgetter('score'))
+        best.draw(self.screen, self.cell_size)
+        best.apple.draw(self.screen, self.cell_size)
+        if debug:
+            best.draw_obstacle(self.screen, self.cell_size)
         pygame.display.flip()
 
     def play(self):
         while not self.stop:
-            self.render()
+            self.render(debug=True)
             action = 0
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:

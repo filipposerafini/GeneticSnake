@@ -14,18 +14,19 @@ class NeuralNetwork:
         return self.weights[start:start + input_layer*output_layer].reshape(input_layer, output_layer)
 
     def softmax(self, z):
-        s = np.exp(z.T) / np.sum(np.exp(z.T), axis=1).reshape(-1, 1)
-        return s
+        return np.exp(z.T) / np.sum(np.exp(z.T), axis=1).reshape(-1, 1)
+
+    def relu(self, z):
+        return z * (z > 0)
 
     def sigmoid(self, z):
-        s = 1 / (1 + np.exp(-z))
-        return s
+        return 1 / (1 + np.exp(-z))
 
     def compute_outputs(self, inputs):
         Z1 = np.matmul(inputs, self.get_weights(0, INPUTS, HIDDEN1))
-        A1 = np.tanh(Z1)
+        A1 = self.relu(Z1)
         Z2 = np.matmul(A1, self.get_weights(INPUTS*HIDDEN1, HIDDEN1, HIDDEN2))
-        A2 = np.tanh(Z2)
+        A2 = self.relu(Z2)
         Z3 = np.matmul(A2, self.get_weights(INPUTS*HIDDEN1 + HIDDEN1*HIDDEN2, HIDDEN2, OUTPUTS))
-        A3 = np.tanh(Z3)
+        A3 = self.relu(Z3)
         return A3
