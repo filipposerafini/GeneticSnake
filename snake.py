@@ -5,6 +5,9 @@ from pygame.locals import *
 import numpy as np
 from operator import attrgetter
 
+# Debug
+DEBUG_ENABLE = True
+
 # Grid Size
 CELL_COUNT = 30
 
@@ -46,7 +49,8 @@ class Apple:
 
 class Snake:
 
-    def __init__(self, x, y, length):
+    def __init__(self, x, y, length, **kwargs):
+        self.debug = False
         self.x = [x]
         self.y = [y]
         self.length = length
@@ -57,7 +61,11 @@ class Snake:
         self.apple = Apple(self)
         self.score = 0
         self.dead = False
-
+        for key in kwargs:
+            if key == "debug":
+                self.debug = kwargs[key]
+                print("Snake debug ON\n" if self.debug else "", end='')
+        
     def turn_right(self):
         self.direction += 1
         if self.direction == 4:
@@ -123,29 +131,14 @@ class Snake:
             return False
 
     def observe_apple(self):
-        distance = math.sqrt(abs(pow(abs(self.x[0] - self.apple.x), 2)
-            + pow(abs(self.y[0] - self.apple.y), 2)))
-        if self.direction == 0:
-            x = self.apple.x - self.x[0]
-            y = self.apple.y - self.y[0]
-        if self.direction == 1:
-            y = -self.apple.x - (-self.x[0])
-            x = self.apple.y - self.y[0]
-        elif self.direction == 2:
-            x = -self.apple.x - (-self.x[0])
-            y = -self.apple.y - (-self.y[0])
-        elif self.direction == 3:
-            y = self.apple.x - self.x[0]
-            x = -self.apple.y - (-self.y[0])
-        angle = math.atan2(y, x)
-        return (distance / CELL_COUNT)*2 - 1, ((angle + math.pi) / (2 * math.pi))*2 - 1
+        return Point(self, x=self.apple.x, y=self.apple.y)
 
     def observe_obstacle(self):
         head = (self.x[0], self.y[0])
         if self.direction == 0:
             front = CELL_COUNT - head[0]
             right = CELL_COUNT - head[1]
-            left = head[1]
+            left = head[1] + 1
             for i in range(1, self.length):
                 distance = 0
                 if self.y[i] == head[1]:
@@ -160,7 +153,7 @@ class Snake:
                         left = abs(distance)
         elif self.direction == 1:
             front = CELL_COUNT - head[1]
-            right = head[0]
+            right = head[0] + 1
             left = CELL_COUNT - head[0]
             for i in range(1, self.length):
                 distance = 0
@@ -175,8 +168,8 @@ class Snake:
                     elif distance > 0 and distance < left:
                         left = distance
         elif self.direction == 2:
-            front = head[0]
-            right = head[1]
+            front = head[0] + 1
+            right = head[1] + 1
             left = CELL_COUNT - head[1]
             for i in range(1, self.length):
                 distance = 0
@@ -191,9 +184,9 @@ class Snake:
                     elif distance > 0 and distance < left:
                         left = distance
         elif self.direction == 3:
-            front = head[1]
+            front = head[1] + 1
             right = CELL_COUNT - head[0]
-            left = head[0]
+            left = head[0] + 1
             for i in range(1, self.length):
                 distance = 0
                 if self.x[i] == head[0]:
@@ -208,7 +201,10 @@ class Snake:
                         left = abs(distance)
         if front < 0:
             front = 0
-        return (front / CELL_COUNT)*2 - 1, (right / CELL_COUNT)*2 - 1, (left / CELL_COUNT)*2 - 1
+        return [Point(self, distance=front, direction=Point.FRONT), 
+               Point(self, distance=right, direction=Point.RIGHT),
+               Point(self, distance=left, direction=Point.LEFT)]
+        #return (front / CELL_COUNT)*2 - 1, (right / CELL_COUNT)*2 - 1, (left / CELL_COUNT)*2 - 1
 
     def draw(self, surface, cell_size, index):
         body = pygame.Surface((cell_size, cell_size))
@@ -224,10 +220,21 @@ class Snake:
             y = CELL_COUNT*cell_size
         for i in range(0, self.length):
             surface.blit(body, (self.x[i] * cell_size + x, self.y[i] * cell_size + y))
+        if self.debug:
+            pts = pygame.Surface((cell_size, cell_size))
+            pts.fill(MAGENTA)
+            points = sorted(self.observe_obstacle(), key=lambda pt: pt.direction)
+            for point in points:
+                surface.blit(pts, tuple([cell_size * coord for coord in point.to_absolute()]))
 
 class Game:
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        self.hidden = False
+        for key in kwargs:
+            if key == "hidden":
+                self.hidden = kwargs[key]
+        
         pygame.init()
         pygame.display.set_caption('Snake - The Genetic Algorithm')
         icon = pygame.image.load('resources/icon.png')
@@ -236,10 +243,11 @@ class Game:
         self.cell_size = int(pygame.display.Info().current_w / 125)
         self.width = CELL_COUNT * self.cell_size * 2
         self.height = CELL_COUNT * self.cell_size * 2
-        self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
         self.clock = pygame.time.Clock()
 
-        self.screen.fill(BLACK)
+        if not self.hidden: 
+            self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
+            self.screen.fill(BLACK)
 
         self.snakes = []
         self.stop = False
@@ -247,7 +255,7 @@ class Game:
     def reset(self):
         self.stop = False
         for snake in self.snakes:
-            snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5)
+            snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5, debug=DEBUG_ENABLE)
 
     def update(self, fps):
         if fps:
@@ -256,14 +264,12 @@ class Game:
             if not snake.dead:
                 prev_distance = snake.get_apple_distance()
                 snake.move()
-                snake.score += 1
                 if snake.hit_self() or snake.hit_border():
-                    snake.score -= 100000
                     snake.dead = True
                 else:
                     distance = snake.get_apple_distance()
                     if snake.eat_apple():
-                        snake.score += 1000
+                        snake.score += 1
                         snake.apple = Apple(snake)
 
     def render(self):
@@ -302,9 +308,19 @@ class Game:
             elif action == 2:
                 for i in range(4):
                     self.snakes[i].turn_left()
-            self.update(5)
-            front, right, left = self.snakes[0].observe_obstacle()
-            print('%.2f, %.2f, %.2f' % (front, right, left))
+            self.update(1)
+            for snake in self.snakes:
+                pts = snake.observe_obstacle()
+                for pt in pts:
+                    pt.to_relative()
+                pts = sorted(pts, key=lambda pt: pt.direction)
+            print("Obstacles: ", pts[0], pts[1], pts[2])
+            apple = snake.observe_apple()
+            print("Apple: ", apple.to_absolute(), apple)
+            apple = snake.observe_apple().to_norm_relative()
+            obstacles = [obstacle.to_norm_relative() for obstacle in snake.observe_obstacle()]
+            inputs = [apple[0], apple[1], obstacles[0][0], obstacles[1][0], obstacles[2][0]]
+            print(inputs)
             if self.snakes[0].dead:
                 self.stop = True
         else:
@@ -313,8 +329,69 @@ class Game:
     def end(self):
         pygame.quit()
 
+
+class Point:
+
+    NAMED_DIRECTION = ["Front", "Right", "Back", "Left"]
+    FRONT = 0
+    RIGHT = 1
+    BACK = 2
+    LEFT = 3
+    _c = 5 # round decimals for python noob maths
+
+    def __init__(self, snake, **kwargs):
+        self.snake = snake
+        noAbs = 2
+        noRel = 2
+        for key in kwargs:
+            if key == "x" or key == "y":
+                setattr(self, key,  kwargs[key])
+                noAbs -= 1
+            if key == "distance" or key == "direction":
+                setattr(self, key,  kwargs[key])
+                noRel -= 1
+        if not noRel: #immediately calculate abs
+            self._absolute()
+        elif noAbs:
+            raise Exception("No absolute nor relative coordinate defined")
+
+    def to_absolute(self):
+        return (self.x, self.y)
+
+    def to_relative(self):
+        self._relative()
+        return (self.distance, self.direction)
+
+    def to_norm_relative(self):
+        distance, direction = self.to_relative()
+        return (distance/CELL_COUNT, direction/4)
+
+    def _relative(self):
+        #slick shit
+        x_rel = self.x - self.snake.x[0]
+        y_rel = self.y - self.snake.y[0]
+        self.distance = round(math.sqrt(x_rel*x_rel + y_rel*y_rel), self._c)
+        angle = math.atan2(y_rel, x_rel)
+        if angle < 0:
+            angle = 2*math.pi+angle 
+        self.direction = round(2 * angle / math.pi - self.snake.direction, self._c)
+        if self.direction >= 4:
+            self.direction -= 4
+        if self.direction < 0:
+            self.direction += 4
+        
+    def _absolute(self):
+        #slick shit
+        angle = self.direction * math.pi / 2
+        absolute_angle = angle + (math.pi/2) * self.snake.direction
+        self.x = round(self.snake.x[0] + self.distance * math.cos(absolute_angle), self._c)
+        self.y = round(self.snake.y[0] + self.distance * math.sin(absolute_angle), self._c)
+
+    def __str__(self):
+        return str(self.to_relative())
+
 if __name__ == '__main__':
     game = Game()
     for _ in range(4):
-        game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 25))
+        game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 25, debug=DEBUG_ENABLE))
     game.play()
