@@ -273,6 +273,8 @@ class Game:
                         snake.apple = Apple(snake)
 
     def render(self):
+        if self.hidden:
+            return
         self.screen.fill(BLACK)
         pygame.draw.line(self.screen, WHITE, (self.width / 2, 0), (self.width / 2, self.height), 5)
         pygame.draw.line(self.screen, WHITE, (0, self.height / 2), (self.width, self.height / 2), 5)

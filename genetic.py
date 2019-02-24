@@ -5,14 +5,17 @@ import snake
 from operator import attrgetter
 import matplotlib.pyplot as plt
 
+# GENETICS SETTINGS
 POPULATION_SIZE = 100
 PARENTS_POOL_SIZE = 20
 MUTATION_COUNT = 10
 MUTATION_PROBABILITY = 0.1
+MUTATION_WEIGHT_CHANGE = 10
+
+# MISC
 WAIT_STEPS = 300
 FPS = None
 FITNESS_HISTORY = [[],[],[]]
-WEIGHT_COEFF = 10
 
 # COLORS
 class colors:
@@ -36,7 +39,7 @@ def calculate_fitness(population):
 
     step = 0
     while step < WAIT_STEPS:
-        #game.render()
+        game.render()
         best = max(game.snakes, key=attrgetter('score'))
         old_apple = best.apple
         for i in range(len(population)):
@@ -88,7 +91,7 @@ def mutate(offspring):
     mutations = random.randint(1, MUTATION_COUNT)
     mutating_index = random.sample(range(len(offspring.weights)), mutations)
     for i in mutating_index:
-        offspring.weights[i] = (random.random()*2 - 1)*WEIGHT_COEFF
+        offspring.weights[i] = (random.random()*2 - 1)*MUTATION_WEIGHT_CHANGE
     return offspring
 
 def genetic_algorithm(population):
