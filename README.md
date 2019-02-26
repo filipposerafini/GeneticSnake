@@ -4,7 +4,9 @@
 
 ## Requirements
 
-The game requires [**python**](https://www.python.org/getit/) and [**pygame**](https://github.com/pygame/pygame).
+The game requires [**pygame**](https://github.com/pygame/pygame) and [**matplotlib**](https://matplotlib.org/)
+
+To install them: `pip install -r requirements.txt`.
 
 ## License
 
