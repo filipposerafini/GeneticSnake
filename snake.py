@@ -9,10 +9,12 @@ from operator import attrgetter
 DEBUG_ENABLE = True
 
 # Grid Size
-CELL_COUNT = 30
+CELL_COUNT = 40
 
 # Colors
 BLACK = (0, 0, 0)
+DARK_GRAY = (64, 64, 64)
+LIGHT_GRAY = (128, 128, 128)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -33,9 +35,9 @@ class Apple:
                 if self.x == snake.x[i] and self.y == snake.y[i]:
                     retry = True
 
-    def draw(self, surface, cell_size):
+    def draw(self, surface, cell_size, color):
         body = pygame.Surface((cell_size, cell_size))
-        body.fill(RED)
+        body.fill(color)
         surface.blit(body, ((self.x + 1) * cell_size, (self.y + 1) * cell_size))
 
 class Snake:
@@ -185,12 +187,12 @@ class Snake:
         if front < 0:
             front = 0
         return [Point(self, distance=front, direction=Point.FRONT),
-               Point(self, distance=right, direction=Point.RIGHT),
-               Point(self, distance=left, direction=Point.LEFT)]
+                Point(self, distance=right, direction=Point.RIGHT),
+                Point(self, distance=left, direction=Point.LEFT)]
 
-    def draw(self, surface, cell_size, debug=False):
+    def draw(self, surface, cell_size, color, debug):
         body = pygame.Surface((cell_size, cell_size))
-        body.fill(GREEN)
+        body.fill(color)
         for i in range(0, self.length):
             surface.blit(body, ((self.x[i] + 1) * cell_size, (self.y[i] + 1) * cell_size))
         if debug:
@@ -234,7 +236,7 @@ class Point:
 
     def to_norm_relative(self):
         distance, direction = self.to_relative()
-        return (distance / CELL_COUNT, direction / 4)
+        return ((distance / CELL_COUNT)*2 - 1, (direction / 4)*2 - 1)
 
     def _relative(self):
         x_rel = self.x - self.snake.x[0]
@@ -280,10 +282,11 @@ class Game:
         self.snakes = []
         self.stop = False
 
-    def reset(self):
-        self.stop = False
-        for snake in self.snakes:
-            snake = Snake(CELL_COUNT/2, CELL_COUNT/2, 5)
+    def best_snake(self):
+        sorted_snakes = sorted(self.snakes, key=attrgetter('score'), reverse=True)
+        for snake in sorted_snakes:
+            if not snake.dead:
+                return snake
 
     def update(self, fps):
         if fps:
@@ -304,8 +307,13 @@ class Game:
         self.screen.fill(BLACK)
         pygame.draw.rect(self.screen, WHITE, Rect(0, 0, self.width, self.height), self.cell_size*2)
         best = max(self.snakes, key=attrgetter('score'))
-        best.draw(self.screen, self.cell_size, debug)
-        best.apple.draw(self.screen, self.cell_size)
+        for snake in self.snakes:
+            if not snake.dead and snake is not best:
+                snake.draw(self.screen, self.cell_size, DARK_GRAY, debug)
+                snake.apple.draw(self.screen, self.cell_size, LIGHT_GRAY)
+        if not best.dead:
+            best.draw(self.screen, self.cell_size, GREEN, debug)
+            best.apple.draw(self.screen, self.cell_size, RED)
         pygame.display.flip()
 
     def play(self):

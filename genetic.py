@@ -2,16 +2,16 @@ import random
 import numpy as np
 import nn
 import snake
-from operator import attrgetter
 import matplotlib
 import matplotlib.pyplot as plt
 
 # GENETICS SETTINGS
 POPULATION_SIZE = 100
-GOOD_PARENTS = 12
-BAD_PARENTS = 3
-MUTATION_COUNT = 6
+GOOD_PARENTS = 15
+BAD_PARENTS = 5
+MUTATION_COUNT = 9
 MUTATION_PROBABILITY = 0.2
+DROPOUT_PROBABILITY = 0.01
 
 # MISC
 HIDDEN = False
@@ -43,7 +43,7 @@ def calculate_fitness(population):
     step = 0
     while step < WAIT_STEPS:
         game.render()
-        best = max(game.snakes, key=attrgetter('score'))
+        best = game.best_snake()
         old_apple = best.apple
         for i in range(POPULATION_SIZE):
             apple = game.snakes[i].observe_apple().to_norm_relative()
@@ -62,7 +62,7 @@ def calculate_fitness(population):
                 break
         if game.stop:
             break
-        best = max(game.snakes, key=attrgetter('score'))
+        best = game.best_snake()
         if old_apple is not best.apple:
             step = 0
         step += 1
@@ -86,7 +86,7 @@ def select_parents(population, fitness):
     return parents, parents_fitness
 
 def crossover(mother, father):
-    offspring = nn.NeuralNetwork()
+    offspring = nn.NeuralNetwork(dropout_prob=DROPOUT_PROBABILITY)
     for i in range(offspring.size):
         if random.random() >= 0.5:
             offspring.weights[i] = mother.weights[i]
@@ -98,7 +98,7 @@ def mutate(offspring):
     mutations = random.randint(1, MUTATION_COUNT)
     mutating_index = random.sample(range(offspring.size), mutations)
     for i in mutating_index:
-        offspring.weights[i] = (random.random()*2 - 1)
+        offspring.weights[i] += (random.random()*2 - 1)
     return offspring
 
 def genetic_algorithm(population):
@@ -140,11 +140,12 @@ if __name__ == '__main__':
     population = initial_population()
     generation = 0
     matplotlib.rcParams['figure.dpi'] = GRAPH_DPI
+    plt.style.use('seaborn')
     for i in FITNESS_HISTORY:
         plt.plot(0,0)
     plt.title("Fitness History")
     plt.xlabel("Generation")
-    plt.ylabel("Average Fitenss")
+    plt.ylabel("Fitenss")
     plt.legend(["Average", "Outline", "Best"])
     while True:
         generation += 1
