@@ -1,32 +1,33 @@
+import snake
+import nn
+import plots
 import random
 import numpy as np
-import nn
-import snake
 import matplotlib
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 
 # GENETICS SETTINGS
 POPULATION_SIZE = 100
 GOOD_PARENTS = 15
 BAD_PARENTS = 5
-MUTATION_COUNT = 9
+MUTATION_COUNT = 7
 MUTATION_PROBABILITY = 0.2
-DROPOUT_PROBABILITY = 0.01
+DROPOUT_COUNT = 3
+DROPOUT_PROBABILITY = 0.05
 
 # MISC
-HIDDEN = False
+SHOW = True
 WAIT_STEPS = 300
 FPS = None
 FITNESS_HISTORY = [[],[],[]]
 GRAPH_DPI = 200
 
-# COLORS
 class colors:
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
+    BLUE = '\033[34m'
     RED = '\033[91m'
     BOLD = '\033[1m'
-    BLUE = '\033[34m'
     END = '\033[0m'
 
 def initial_population():
@@ -36,12 +37,12 @@ def initial_population():
     return population
 
 def calculate_fitness(population):
-    game = snake.Game(hidden=HIDDEN)
+    game = snake.Game(show=SHOW)
     for _ in population:
         game.snakes.append(snake.Snake(snake.CELL_COUNT/2, snake.CELL_COUNT/2, 5))
 
     step = 0
-    while step < WAIT_STEPS:
+    while not game.stop and step < WAIT_STEPS:
         game.render()
         best = game.best_snake()
         old_apple = best.apple
@@ -55,17 +56,13 @@ def calculate_fitness(population):
             elif action == 2:
                 game.snakes[i].turn_left()
         game.update(FPS)
-        game.stop = True
-        for s in game.snakes:
-            if not s.dead:
-                game.stop = False
-                break
-        if game.stop:
-            break
-        best = game.best_snake()
-        if old_apple is not best.apple:
-            step = 0
-        step += 1
+        if all(s.dead for s in game.snakes):
+            game.stop = True
+        else:
+            best = game.best_snake()
+            if old_apple is not best.apple:
+                step = 0
+            step += 1
     fitness = []
     for s in game.snakes:
         fitness.append(s.score)
@@ -86,19 +83,31 @@ def select_parents(population, fitness):
     return parents, parents_fitness
 
 def crossover(mother, father):
-    offspring = nn.NeuralNetwork(dropout_prob=DROPOUT_PROBABILITY)
+    offspring = nn.NeuralNetwork()
     for i in range(offspring.size):
-        if random.random() >= 0.5:
+        if np.random.random() >= 0.5:
             offspring.weights[i] = mother.weights[i]
         else:
             offspring.weights[i] = father.weights[i]
+    for i in range(len(offspring.dropout)):
+        if np.random.random() >= 0.5:
+            offspring.dropout[i] = mother.dropout[i]
+        else:
+            offspring.dropout[i] = father.dropout[i]
     return offspring
 
 def mutate(offspring):
-    mutations = random.randint(1, MUTATION_COUNT)
+    mutations = np.random.randint(1, MUTATION_COUNT)
     mutating_index = random.sample(range(offspring.size), mutations)
     for i in mutating_index:
-        offspring.weights[i] += (random.random()*2 - 1)
+        offspring.weights[i] += np.random.randn()
+    return offspring
+
+def dropout(offspring):
+    mutations = np.random.randint(1, DROPOUT_COUNT)
+    mutating_index = random.sample(range(offspring.layers[0], len(offspring.dropout)), mutations)
+    for i in mutating_index:
+        offspring.dropout[i] = not offspring.dropout[i]
     return offspring
 
 def genetic_algorithm(population):
@@ -118,13 +127,26 @@ def genetic_algorithm(population):
         mother = parents[0]
         father = parents[1]
         offspring = crossover(mother, father)
-        if random.random() < MUTATION_PROBABILITY:
-            next_population.append(mutate(offspring))
-        else:
-            next_population.append(offspring)
+        if np.random.random() < MUTATION_PROBABILITY:
+            offspring = mutate(offspring)
+        if np.random.random() < DROPOUT_PROBABILITY:
+            offspring = dropout(offspring)
+        next_population.append(offspring)
     return next_population[:POPULATION_SIZE], parents_fitness
 
+def init_plot(dpi=GRAPH_DPI):
+    matplotlib.rcParams['figure.dpi'] = dpi
+    plt.figure('Fitness History', facecolor='black')
+    plt.style.use('dark_background')
+    for i in FITNESS_HISTORY:
+        plt.plot(0,0)
+    plt.title('Fitness History', color='white')
+    plt.xlabel('Generation', color='white')
+    plt.ylabel('Fitness', color='white')
+    plt.legend(['Average', 'Outline', 'Best'])
+
 def plot_update(parents_fitness):
+    plt.figure('Fitness History')
     FITNESS_HISTORY[0].append(np.average(parents_fitness))
     FITNESS_HISTORY[1].append(np.max(FITNESS_HISTORY[0][:]))
     FITNESS_HISTORY[2].append(np.max(parents_fitness))
@@ -137,21 +159,15 @@ def plot_update(parents_fitness):
     plt.pause(0.05)
 
 if __name__ == '__main__':
+    init_plot()
     population = initial_population()
     generation = 0
-    matplotlib.rcParams['figure.dpi'] = GRAPH_DPI
-    plt.style.use('seaborn')
-    for i in FITNESS_HISTORY:
-        plt.plot(0,0)
-    plt.title("Fitness History")
-    plt.xlabel("Generation")
-    plt.ylabel("Fitenss")
-    plt.legend(["Average", "Outline", "Best"])
     while True:
         generation += 1
         print(colors.BOLD)
         print('{:-^100}'.format(' Generation # ' + colors.YELLOW + str(generation) + ' ' + colors.END + colors.BOLD))
         print(colors.END)
         next_population, parents_fitness = genetic_algorithm(population)
+        next_population[0].draw()
         plot_update(parents_fitness)
         population = next_population

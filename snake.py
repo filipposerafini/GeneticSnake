@@ -1,7 +1,6 @@
-import random
-import math
 import pygame
 from pygame.locals import *
+import math
 import numpy as np
 from operator import attrgetter
 
@@ -29,8 +28,8 @@ class Apple:
         retry = True
         while retry:
             retry = False
-            self.x = random.randint(0, CELL_COUNT - 1)
-            self.y = random.randint(0, CELL_COUNT - 1)
+            self.x = np.random.randint(0, CELL_COUNT - 1)
+            self.y = np.random.randint(0, CELL_COUNT - 1)
             for i in range(0, snake.length):
                 if self.x == snake.x[i] and self.y == snake.y[i]:
                     retry = True
@@ -236,7 +235,7 @@ class Point:
 
     def to_norm_relative(self):
         distance, direction = self.to_relative()
-        return ((distance / CELL_COUNT)*2 - 1, (direction / 4)*2 - 1)
+        return (round(distance / CELL_COUNT, self._c), round(direction / 4, self._c))
 
     def _relative(self):
         x_rel = self.x - self.snake.x[0]
@@ -262,10 +261,10 @@ class Point:
 
 class Game:
 
-    def __init__(self, hidden=False):
-        self.hidden = hidden
+    def __init__(self, show=True):
+        self.show = show
 
-        if not hidden:
+        if show:
             pygame.init()
             pygame.display.set_caption('Snake - The Genetic Algorithm')
             icon = pygame.image.load('resources/icon.png')
@@ -302,7 +301,7 @@ class Game:
                         snake.apple = Apple(snake)
 
     def render(self, debug=False):
-        if self.hidden:
+        if not self.show:
             return
         self.screen.fill(BLACK)
         pygame.draw.rect(self.screen, WHITE, Rect(0, 0, self.width, self.height), self.cell_size*2)
@@ -341,7 +340,7 @@ class Game:
                 player.turn_right()
             elif action == 2:
                 player.turn_left()
-            self.update(5)
+            self.update(1)
 
             pts = player.observe_obstacle()
             for pt in pts:
