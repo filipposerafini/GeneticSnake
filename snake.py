@@ -8,7 +8,7 @@ from operator import attrgetter
 DEBUG_ENABLE = True
 
 # Grid Size
-CELL_COUNT = 40
+CELL_COUNT = 30
 
 # Colors
 BLACK = (0, 0, 0)

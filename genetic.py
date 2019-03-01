@@ -1,6 +1,5 @@
 import snake
 import nn
-import plots
 import random
 import numpy as np
 import matplotlib
@@ -10,10 +9,10 @@ from matplotlib import pyplot as plt
 POPULATION_SIZE = 100
 GOOD_PARENTS = 15
 BAD_PARENTS = 5
-MUTATION_COUNT = 7
-MUTATION_PROBABILITY = 0.2
-DROPOUT_COUNT = 3
-DROPOUT_PROBABILITY = 0.05
+MAX_MUTATIONS= 5
+MAX_DROPOUTS = 2
+MUTATION_PROBABILITY = 0.3
+DROPOUT_PROBABILITY = 0.0
 
 # MISC
 SHOW = True
@@ -97,15 +96,15 @@ def crossover(mother, father):
     return offspring
 
 def mutate(offspring):
-    mutations = np.random.randint(1, MUTATION_COUNT)
+    mutations = np.random.randint(1, MAX_MUTATIONS)
     mutating_index = random.sample(range(offspring.size), mutations)
     for i in mutating_index:
         offspring.weights[i] += np.random.randn()
     return offspring
 
 def dropout(offspring):
-    mutations = np.random.randint(1, DROPOUT_COUNT)
-    mutating_index = random.sample(range(offspring.layers[0], len(offspring.dropout)), mutations)
+    mutations = np.random.randint(1, MAX_DROPOUTS)
+    mutating_index = random.sample(range(len(offspring.dropout) - offspring.layers[-1]), mutations)
     for i in mutating_index:
         offspring.dropout[i] = not offspring.dropout[i]
     return offspring

@@ -2,8 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 INPUTS = 5
-HIDDEN1 = 6
-HIDDEN2 = 4
+HIDDEN = [4]
 OUTPUTS = 3
 
 LAYERS_DISTANCE = 250
@@ -19,22 +18,20 @@ NEGATIVE_WEIGHT = (0, 0, 1)
 
 class NeuralNetwork:
 
-    def __init__(self, inputs=INPUTS, outputs=OUTPUTS, h_layers=[HIDDEN1, HIDDEN2]):
+    def __init__(self, inputs=INPUTS, outputs=OUTPUTS, h_layers=HIDDEN):
         self.layers = [inputs] + h_layers + [outputs]
         self.h_layers = len(h_layers)
         self.size = 0
         self.dropout = [True] * sum(self.layers)
         for i in range(1, len(self.layers)):
             self.size += self.layers[i - 1] * self.layers[i]
-            self.dropout += [True] * self.layers[i]
         self.weights = np.random.randn(self.size)
 
     def get_dropout(self, layer):
         start = 0
         end = 0
-        if not layer == 0:
-            start = sum(self.layers[0:layer-1])
-            end = start + self.layers[layer-1]
+        start = sum(self.layers[0:layer-1])
+        end = start + self.layers[layer-1]
         input_dropout = np.array(self.dropout[start:end]).reshape(end-start, 1)
         start = sum(self.layers[0:layer])
         end = start + self.layers[layer]
@@ -78,25 +75,26 @@ class NeuralNetwork:
         return self.forward_propagation(x, self.get_weights(self.h_layers), is_output=True)
 
     def draw(self):
-        plt.figure('Neural Network')
+        plt.figure('Best Neural Network')
         plt.style.use('dark_background')
         plt.clf()
-        for i in range(self.layers[0]):
-            self.__draw_neuron(0, i, self.layers[0], INPUT_COLOR)
         for layer in range(1, len(self.layers)):
-            weights = self.get_weights(layer - 1)
-            weights = np.multiply(weights, self.dropout[layer - 1]).T
+            weights = self.get_weights(layer - 1).T
             for neuron in range(self.layers[layer]):
-                if layer == len(self.layers) - 1:
-                    color = OUTPUT_COLOR
-                if not self.dropout[sum(self.layers[0:layer]) + neuron]:
-                    color = DROPOUT_COLOR
-                else:
-                    color = NEURON_COLOR
-                self.__draw_neuron(layer, neuron, self.layers[layer], color)
                 for w, weight in enumerate(weights[neuron]):
                     self.__draw_weight(layer, neuron, self.layers[layer], w,
                             self.layers[layer-1], weight)
+        for layer in range(len(self.layers)):
+            for neuron in range(self.layers[layer]):
+                if layer == 0:
+                    color = INPUT_COLOR
+                elif layer == len(self.layers) - 1:
+                    color = OUTPUT_COLOR
+                else:
+                    color = NEURON_COLOR
+                if not self.dropout[sum(self.layers[0:layer]) + neuron]:
+                    color = DROPOUT_COLOR
+                self.__draw_neuron(layer, neuron, self.layers[layer], color)
         plt.axis('scaled')
         plt.axis('off')
         plt.pause(0.1)
