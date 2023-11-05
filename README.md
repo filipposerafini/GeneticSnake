@@ -12,6 +12,6 @@ To install them: `pip install -r requirements.txt`.
 
 Distributed under the [MIT](LICENSE) license.
 
-Copyright &copy; 2019, [Filippo Serafini](https://filipposerafini.github.io/).
+Copyright &copy; 2023, [Filippo Serafini](https://filipposerafini.github.io/).
 
 [python]: https://img.shields.io/badge/python-3-blue.svg?longCache=true&style=flat-square
