@@ -2,18 +2,17 @@ import pygame
 from pygame.locals import *
 import math
 import numpy as np
+import nn
+import sys
 from operator import attrgetter
 
-# Debug
-DEBUG_ENABLE = True
-
 # Grid Size
-CELL_COUNT = 30
+CELL_COUNT = 40
 
 # Colors
 BLACK = (0, 0, 0)
-DARK_GRAY = (64, 64, 64)
-LIGHT_GRAY = (128, 128, 128)
+DARK_GRAY = (16, 16, 16)
+LIGHT_GRAY = (32, 32, 32)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
@@ -21,6 +20,10 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
+
+# FPS
+DEBUG_FPS = 10
+FPS = 50
 
 class Apple:
 
@@ -41,7 +44,7 @@ class Apple:
 
 class Snake:
 
-    def __init__(self, x, y, length):
+    def __init__(self, x=CELL_COUNT/2, y=CELL_COUNT/2, length=10):
         self.x = [x]
         self.y = [y]
         self.length = length
@@ -114,165 +117,106 @@ class Snake:
         else:
             return False
 
-    def observe_apple(self):
-        return Point(self, x=self.apple.x, y=self.apple.y)
+    def get_distance(self, targetx, targety, direction):
 
-    def observe_obstacle(self):
-        head = (self.x[0], self.y[0])
+        if direction == 0:
+            if self.y[0] == targety and targetx > self.x[0]:
+                return 1 - (targetx - self.x[0]) / CELL_COUNT
+            else:
+                return 0
+
+        elif direction == 1:
+            if self.x[0] == targetx and targety > self.y[0]:
+                return 1 - (targety - self.y[0]) / CELL_COUNT
+            else:
+                return 0
+
+        elif direction == 2:
+            if self.y[0] == targety and targetx < self.x[0]:
+                return 1 - (self.x[0] - targetx) / CELL_COUNT
+            else:
+                return 0
+
+        elif direction == 3:
+            if self.x[0] == targetx and targety < self.y[0]:
+                return 1 - (self.y[0] - targety) / CELL_COUNT
+            else:
+                return 0
+        else:
+            return 0
+
+    def get_inputs(self):
+        
+        #distance from apple
+        apple_front = self.get_distance(self.apple.x, self.apple.y, self.direction)
+        apple_left = self.get_distance(self.apple.x, self.apple.y, (self.direction - 1) % 4)
+        apple_right = self.get_distance(self.apple.x, self.apple.y, (self.direction + 1) % 4)
+
+        #distance from wall
+        wall_front = 0
+        wall_left = 0
+        wall_right = 0
+
         if self.direction == 0:
-            front = CELL_COUNT - head[0]
-            right = CELL_COUNT - head[1]
-            left = head[1] + 1
-            for i in range(1, self.length):
-                distance = 0
-                if self.y[i] == head[1]:
-                    distance = self.x[i] - head[0]
-                    if distance >= 0 and distance < front:
-                        front = distance
-                elif self.x[i] == head[0]:
-                    distance = self.y[i] - head[1]
-                    if distance > 0 and distance < right:
-                        right = distance
-                    elif distance < 0 and abs(distance) < left:
-                        left = abs(distance)
-        elif self.direction == 1:
-            front = CELL_COUNT - head[1]
-            right = head[0] + 1
-            left = CELL_COUNT - head[0]
-            for i in range(1, self.length):
-                distance = 0
-                if self.x[i] == head[0]:
-                    distance = self.y[i] - head[1]
-                    if distance >= 0 and distance < front:
-                        front = distance
-                elif self.y[i] == head[1]:
-                    distance = self.x[i] - head[0]
-                    if distance < 0 and abs(distance) < right:
-                        right = abs(distance)
-                    elif distance > 0 and distance < left:
-                        left = distance
-        elif self.direction == 2:
-            front = head[0] + 1
-            right = head[1] + 1
-            left = CELL_COUNT - head[1]
-            for i in range(1, self.length):
-                distance = 0
-                if self.y[i] == head[1]:
-                    distance = head[0] - self.x[i]
-                    if distance >= 0 and distance < front:
-                        front = distance
-                elif self.x[i] == head[0]:
-                    distance = self.y[i] - head[1]
-                    if distance < 0 and abs(distance) < right:
-                        right = abs(distance)
-                    elif distance > 0 and distance < left:
-                        left = distance
-        elif self.direction == 3:
-            front = head[1] + 1
-            right = CELL_COUNT - head[0]
-            left = head[0] + 1
-            for i in range(1, self.length):
-                distance = 0
-                if self.x[i] == head[0]:
-                    distance = head[1] - self.y[i]
-                    if distance >= 0 and distance < front:
-                        front = distance
-                elif self.y[i] == head[1]:
-                    distance = self.x[i] - head[0]
-                    if distance > 0 and distance < right:
-                        right = distance
-                    elif distance < 0 and abs(distance) < left:
-                        left = abs(distance)
-        if front < 0:
-            front = 0
-        return [Point(self, distance=front, direction=Point.FRONT),
-                Point(self, distance=right, direction=Point.RIGHT),
-                Point(self, distance=left, direction=Point.LEFT)]
+            wall_front = self.x[0] / CELL_COUNT
+            wall_right = self.y[0] / CELL_COUNT 
+            wall_left = 1 - wall_right
 
-    def draw(self, surface, cell_size, color, debug):
+        elif self.direction == 1:
+            wall_front = self.y[0] / CELL_COUNT
+            wall_left = self.x[0] / CELL_COUNT 
+            wall_right = 1 - wall_left
+
+        elif self.direction == 2:
+            wall_front = 1 - self.x[0] / CELL_COUNT
+            wall_left = self.y[0] / CELL_COUNT 
+            wall_right = 1 - wall_left
+
+        elif self.direction == 3:
+            wall_front = 1 - self.y[0] / CELL_COUNT
+            wall_right = self.x[0] / CELL_COUNT 
+            wall_left = 1 - wall_right
+
+        #distance from self
+        self_front = 0
+        self_left = 0
+        self_right = 0
+
+        for i in range(3, self.length):
+            front = self.get_distance(self.x[i], self.y[i], self.direction)
+            if front > self_front:
+                self_front = front
+            left = self.get_distance(self.x[i], self.y[i], (self.direction - 1) % 4)
+            if left > self_left:
+                self_left = left
+            right = self.get_distance(self.x[i], self.y[i], (self.direction + 1) % 4)
+            if right > self_right:
+                self_right = right
+
+        return [apple_front, apple_left, apple_right, wall_front, wall_left, wall_right, self_front, self_left, self_right]
+
+    def draw(self, surface, cell_size, color):
         body = pygame.Surface((cell_size, cell_size))
         body.fill(color)
         for i in range(0, self.length):
             surface.blit(body, ((self.x[i] + 1) * cell_size, (self.y[i] + 1) * cell_size))
-        if debug:
-            pts = pygame.Surface((cell_size, cell_size))
-            pts.fill(MAGENTA)
-            points = sorted(self.observe_obstacle(), key=lambda pt: pt.direction)
-            for point in points:
-                surface.blit(pts, tuple([(coord + 1) * cell_size for coord in point.to_absolute()]))
-
-class Point:
-
-    NAMED_DIRECTION = ["Front", "Right", "Back", "Left"]
-    FRONT = 0
-    RIGHT = 1
-    BACK = 2
-    LEFT = 3
-    _c = 5 # round decimals for python noob maths
-
-    def __init__(self, snake, **kwargs):
-        self.snake = snake
-        noAbs = 2
-        noRel = 2
-        for key in kwargs:
-            if key == "x" or key == "y":
-                setattr(self, key,  kwargs[key])
-                noAbs -= 1
-            if key == "distance" or key == "direction":
-                setattr(self, key,  kwargs[key])
-                noRel -= 1
-        if not noRel: #immediately calculate abs
-            self._absolute()
-        elif noAbs:
-            raise Exception("No absolute nor relative coordinate defined")
-
-    def to_absolute(self):
-        return (self.x, self.y)
-
-    def to_relative(self):
-        self._relative()
-        return (self.distance, self.direction)
-
-    def to_norm_relative(self):
-        distance, direction = self.to_relative()
-        return (round(distance / CELL_COUNT, self._c), round(direction / 4, self._c))
-
-    def _relative(self):
-        x_rel = self.x - self.snake.x[0]
-        y_rel = self.y - self.snake.y[0]
-        self.distance = round(math.sqrt(x_rel*x_rel + y_rel*y_rel), self._c)
-        angle = math.atan2(y_rel, x_rel)
-        if angle < 0:
-            angle = 2*math.pi+angle
-        self.direction = round(2 * angle / math.pi - self.snake.direction, self._c)
-        if self.direction >= 4:
-            self.direction -= 4
-        if self.direction < 0:
-            self.direction += 4
-
-    def _absolute(self):
-        angle = self.direction * math.pi / 2
-        absolute_angle = angle + (math.pi / 2) * self.snake.direction
-        self.x = round(self.snake.x[0] + self.distance * math.cos(absolute_angle), self._c)
-        self.y = round(self.snake.y[0] + self.distance * math.sin(absolute_angle), self._c)
-
-    def __str__(self):
-        return str(self.to_relative())
 
 class Game:
 
     def __init__(self, show=True):
         self.show = show
-
+        self.font = None
         if show:
             pygame.init()
             pygame.display.set_caption('Snake - The Genetic Algorithm')
             icon = pygame.image.load('resources/icon.png')
             pygame.display.set_icon(icon)
+            self.font = pygame.font.Font('font.ttf', 30)
+
 
             self.cell_size = int(pygame.display.Info().current_w / 100)
-            self.width = CELL_COUNT * self.cell_size + 2 * self.cell_size
-            self.height = CELL_COUNT * self.cell_size + 2 * self.cell_size
+            self.width = CELL_COUNT * self.cell_size + 2*self.cell_size
+            self.height = CELL_COUNT * self.cell_size + 2*self.cell_size
             self.screen = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
             self.clock = pygame.time.Clock()
 
@@ -288,77 +232,128 @@ class Game:
                 return snake
 
     def update(self, fps):
-        if fps:
+        if fps is not None:
             self.clock.tick(fps)
         for snake in self.snakes:
             if not snake.dead:
                 snake.move()
-                if snake.hit_self() or snake.hit_border():
+                if snake.hit_border():
+                    snake.dead = True
+                elif snake.hit_self():
                     snake.dead = True
                 else:
                     if snake.eat_apple():
                         snake.score += 1
                         snake.apple = Apple(snake)
+                    # else:
+                        # snake.score -= 0.002
 
-    def render(self, debug=False):
+    def render(self, step=None):
         if not self.show:
             return
         self.screen.fill(BLACK)
-        pygame.draw.rect(self.screen, WHITE, Rect(0, 0, self.width, self.height), self.cell_size*2)
-        best = max(self.snakes, key=attrgetter('score'))
+        pygame.draw.rect(self.screen, WHITE, Rect(0, 0, self.width, self.height), self.cell_size)
+        
+        best = self.best_snake()
         for snake in self.snakes:
             if not snake.dead and snake is not best:
-                snake.draw(self.screen, self.cell_size, DARK_GRAY, debug)
+                snake.draw(self.screen, self.cell_size, DARK_GRAY)
                 snake.apple.draw(self.screen, self.cell_size, LIGHT_GRAY)
         if not best.dead:
-            best.draw(self.screen, self.cell_size, GREEN, debug)
+            best.draw(self.screen, self.cell_size, GREEN)
             best.apple.draw(self.screen, self.cell_size, RED)
+            
+            score_surf = self.font.render(str(int(best.score)), True, YELLOW)
+            score_rect = score_surf.get_rect()
+            score_rect.topright = (CELL_COUNT * self.cell_size, 1.5 * self.cell_size)
+            self.screen.blit(score_surf, score_rect)
+
+        if step is not None:
+            step_surf = self.font.render(str(step), True, LIGHT_GRAY)
+            step_rect = step_surf.get_rect()
+            step_rect.topright = (CELL_COUNT * self.cell_size, 3 * self.cell_size)
+            self.screen.blit(step_surf, step_rect)
+
         pygame.display.flip()
 
-    def play(self):
+    def is_stopped(self):
+        if self.show:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return True
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == K_ESCAPE:
+                        return True
+        return False
+
+    def play(self, fps, neural_net=None):
         while not self.stop:
-            self.render(debug=DEBUG_ENABLE)
-            action = 0
+            self.render()
+            action = 2
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.end()
                     return
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == K_RIGHT:
-                        action = 1
+                    if event.key == K_RIGHT and neural_net is None:
+                        action = 0
                         break
-                    elif event.key == K_LEFT:
-                        action = 2
+                    elif event.key == K_LEFT and neural_net is None:
+                        action = 1
                         break
                     elif event.key == K_ESCAPE:
                         self.end()
                         return
+                    elif event.key == K_RETURN:
+                        self.reset()
+                        self.snakes.append(Snake())
+                        break
                 else:
                     pass
-            player = self.snakes[0]
-            if action == 1:
-                player.turn_right()
-            elif action == 2:
-                player.turn_left()
-            self.update(1)
 
-            pts = player.observe_obstacle()
-            for pt in pts:
-                pt.to_relative()
-            pts = sorted(pts, key=lambda pt: pt.direction)
-            apple = player.observe_apple().to_norm_relative()
-            obstacles = [obstacle.to_norm_relative() for obstacle in player.observe_obstacle()]
-            inputs = [apple[0], apple[1], obstacles[0][0], obstacles[1][0], obstacles[2][0]]
-            print(inputs)
+            player = self.snakes[0]
+
+            inputs = player.get_inputs()
+
+            if neural_net:
+                action = np.argmax(neural_net.compute_outputs(inputs))
+
+            if action == 0:
+                player.turn_right()
+            elif action == 1:
+                player.turn_left()
+            self.update(fps)
             if player.dead:
-                self.stop = True
+                self.reset()
+                self.snakes.append(Snake())
         else:
             self.end()
+
+    def reset(self):
+        self.snakes = []
+        self.stop = False
 
     def end(self):
         pygame.quit()
 
 if __name__ == '__main__':
+
+    args = len(sys.argv)
+    fps = FPS
+    if args == 1:
+        neural_net = None
+        fps = DEBUG_FPS
+    elif args == 2:
+        filename = sys.argv[1]
+        if filename.endswith('.json'):
+            neural_net = nn.fromJSON(filename)
+        else:
+            print('usage: snake.py [snake_nn.json]')
+            sys.exit()
+    else:
+        print('usage: snake.py [snake_nn.json]')
+        sys.exit()
+
     game = Game()
-    game.snakes.append(Snake(CELL_COUNT/2, CELL_COUNT/2, 10))
-    game.play()
+    game.snakes.append(Snake())
+    game.play(fps, neural_net)

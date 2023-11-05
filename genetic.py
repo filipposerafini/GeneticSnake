@@ -1,172 +1,199 @@
 import snake
 import nn
+import sys
 import random
+import time
 import numpy as np
-import matplotlib
+from datetime import datetime
 from matplotlib import pyplot as plt
 
 # GENETICS SETTINGS
-POPULATION_SIZE = 100
-GOOD_PARENTS = 15
-BAD_PARENTS = 5
-MAX_MUTATIONS= 5
-MAX_DROPOUTS = 2
-MUTATION_PROBABILITY = 0.3
-DROPOUT_PROBABILITY = 0.0
+POPULATION_SIZE = 200
+PARENTS = 10
+MAX_MUTATIONS = 5
+MUTATION_PROBABILITY = 0.1
 
 # MISC
 SHOW = True
-WAIT_STEPS = 300
+WAIT_STEPS = 500
 FPS = None
-FITNESS_HISTORY = [[],[],[]]
-GRAPH_DPI = 200
+DPI = 100
+
+now = datetime.now()
 
 class colors:
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
     BLUE = '\033[34m'
+    MAGENTA = '\033[95m'
     RED = '\033[91m'
     BOLD = '\033[1m'
     END = '\033[0m'
 
-def initial_population():
+def initial_population(start=None):
     population = []
     for _ in range(0, POPULATION_SIZE):
-        population.append(nn.NeuralNetwork())
+        if start is None:
+            population.append(nn.NeuralNetwork(generation=1))
+        else:
+            population.append(start)
     return population
 
-def calculate_fitness(population):
-    game = snake.Game(show=SHOW)
+def calculate_fitness(population, game):
+
+    game.reset()
     for _ in population:
-        game.snakes.append(snake.Snake(snake.CELL_COUNT/2, snake.CELL_COUNT/2, 5))
+        game.snakes.append(snake.Snake())
 
     step = 0
+    max_score = 0
+    prev_best = game.best_snake()
+
     while not game.stop and step < WAIT_STEPS:
-        game.render()
-        best = game.best_snake()
-        old_apple = best.apple
+        if game.is_stopped():
+            game.end()
+            return []
+        game.render(step=step)
+
         for i in range(POPULATION_SIZE):
-            apple = game.snakes[i].observe_apple().to_norm_relative()
-            obstacles = [obstacle.to_norm_relative() for obstacle in game.snakes[i].observe_obstacle()]
-            inputs = [apple[0], apple[1], obstacles[0][0], obstacles[1][0], obstacles[2][0]]
+            inputs = game.snakes[i].get_inputs()
+
             action = np.argmax(population[i].compute_outputs(inputs))
-            if action == 1:
+            if action == 0:
                 game.snakes[i].turn_right()
-            elif action == 2:
+            elif action == 1:
                 game.snakes[i].turn_left()
         game.update(FPS)
+
         if all(s.dead for s in game.snakes):
             game.stop = True
         else:
             best = game.best_snake()
-            if old_apple is not best.apple:
+            if best.score > max_score or best is not prev_best:
+                max_score = best.score
                 step = 0
             step += 1
+            prev_best = best
+
     fitness = []
     for s in game.snakes:
         fitness.append(s.score)
-    game.end()
+
     return fitness
 
 def select_parents(population, fitness):
     sorted_index = list(np.argsort(fitness)[::-1])
     parents = []
     parents_fitness = []
-    for i in sorted_index[:GOOD_PARENTS]:
+    for i in sorted_index[:PARENTS]:
         parents.append(population[i])
         parents_fitness.append(fitness[i])
-    lucky_index = random.sample(sorted_index[GOOD_PARENTS:], BAD_PARENTS)
-    for lucky in lucky_index:
-        parents.append(population[lucky])
-        parents_fitness.append(fitness[lucky])
     return parents, parents_fitness
 
-def crossover(mother, father):
-    offspring = nn.NeuralNetwork()
+def crossover(mother, father, generation):
+    offspring = nn.NeuralNetwork(generation=generation)
     for i in range(offspring.size):
         if np.random.random() >= 0.5:
             offspring.weights[i] = mother.weights[i]
         else:
             offspring.weights[i] = father.weights[i]
-    for i in range(len(offspring.dropout)):
-        if np.random.random() >= 0.5:
-            offspring.dropout[i] = mother.dropout[i]
-        else:
-            offspring.dropout[i] = father.dropout[i]
     return offspring
 
 def mutate(offspring):
-    mutations = np.random.randint(1, MAX_MUTATIONS)
-    mutating_index = random.sample(range(offspring.size), mutations)
-    for i in mutating_index:
-        offspring.weights[i] += np.random.randn()
+    for i in range(offspring.size):
+        if np.random.random() < MUTATION_PROBABILITY:
+            offspring.weights[i] += np.random.randn()
     return offspring
 
-def dropout(offspring):
-    mutations = np.random.randint(1, MAX_DROPOUTS)
-    mutating_index = random.sample(range(len(offspring.dropout) - offspring.layers[-1]), mutations)
-    for i in mutating_index:
-        offspring.dropout[i] = not offspring.dropout[i]
-    return offspring
-
-def genetic_algorithm(population):
-    fitness = calculate_fitness(population)
+def genetic_algorithm(population, game, generation):
+    # Calculate Fitness
+    fitness = calculate_fitness(population, game)
+    if not fitness:
+        return [], []
+    # Select Parents
     parents_pool, parents_fitness = select_parents(population, fitness)
-    avg_fit = np.average(parents_fitness)
-    print(colors.BOLD, end='')
-    print('{: ^100}'.format(colors.GREEN + 'Average: ' + colors.END + colors.BOLD + str(avg_fit)))
-    print(colors.END)
-    best_fit = np.max(parents_fitness)
-    print(colors.BOLD, end='')
-    print('{: ^100}'.format(colors.BLUE + 'Best: ' + colors.END + colors.BOLD + str(best_fit)))
-    print(colors.END, end='')
     next_population = parents_pool
+    # Generate Offspring
     while len(next_population) < POPULATION_SIZE:
         parents = random.sample(parents_pool, 2)
         mother = parents[0]
         father = parents[1]
-        offspring = crossover(mother, father)
-        if np.random.random() < MUTATION_PROBABILITY:
-            offspring = mutate(offspring)
-        if np.random.random() < DROPOUT_PROBABILITY:
-            offspring = dropout(offspring)
+        # Crossover
+        offspring = crossover(mother, father, generation)
+        # Mutate
+        offspring = mutate(offspring)
         next_population.append(offspring)
     return next_population[:POPULATION_SIZE], parents_fitness
 
-def init_plot(dpi=GRAPH_DPI):
-    matplotlib.rcParams['figure.dpi'] = dpi
-    plt.figure('Fitness History', facecolor='black')
-    plt.style.use('dark_background')
-    for i in FITNESS_HISTORY:
-        plt.plot(0,0)
-    plt.title('Fitness History', color='white')
-    plt.xlabel('Generation', color='white')
-    plt.ylabel('Fitness', color='white')
-    plt.legend(['Average', 'Outline', 'Best'])
-
-def plot_update(parents_fitness):
+def init_plot():
+    history = [[0], [0]]
     plt.figure('Fitness History')
-    FITNESS_HISTORY[0].append(np.average(parents_fitness))
-    FITNESS_HISTORY[1].append(np.max(FITNESS_HISTORY[0][:]))
-    FITNESS_HISTORY[2].append(np.max(parents_fitness))
-    x = np.arange(1,len(FITNESS_HISTORY[0])+1)
+    plt.plot([0], history[0])
+    plt.plot([0], history[1])
+    plt.title('Fitness History')
+    plt.xlabel('Generation')
+    plt.ylabel('Fitness')
+    plt.legend(['Average', 'Best'])
+    plt.grid(alpha = 0.5)
+    return history
+
+def update_plot(history, generation):
+    plt.figure('Fitness History')
+
+    x = list(range(generation + 1));
+
     for i, line in enumerate(plt.gca().lines):
         line.set_xdata(x)
-        line.set_ydata(FITNESS_HISTORY[i][:])
+        line.set_ydata(history[i][:])
     plt.gca().relim()
     plt.gca().autoscale_view()
     plt.pause(0.05)
 
 if __name__ == '__main__':
-    init_plot()
-    population = initial_population()
+
+    args = len(sys.argv)
+
+    if args == 1:
+        population = initial_population()
+    elif args == 2:
+        filename = sys.argv[1]
+        if filename.endswith('.json'):
+            population = initial_population(nn.fromJSON(filename))
+        else:
+            print('usage: genetic.py [snake_nn.json]')
+            sys.exit()
+    else:
+        print('usage: genetic.py [snake_nn.json]')
+        sys.exit()
+
+    game = snake.Game(show=SHOW)
     generation = 0
+    overall_best = 0
+    history = init_plot()
+
     while True:
         generation += 1
-        print(colors.BOLD)
-        print('{:-^100}'.format(' Generation # ' + colors.YELLOW + str(generation) + ' ' + colors.END + colors.BOLD))
-        print(colors.END)
-        next_population, parents_fitness = genetic_algorithm(population)
-        next_population[0].draw()
-        plot_update(parents_fitness)
+        next_population, fitness = genetic_algorithm(population, game, generation)
+        if not next_population and not fitness:
+            break
+        
+        print(colors.BOLD + 'Generation # ' + colors.YELLOW + str(generation) + colors.END + '\n')
+
+        avg_fit = np.average(fitness)
+        history[0].append(avg_fit)
+        print(colors.BOLD + colors.GREEN + 'Average: ' + str(avg_fit) + colors.END)
+
+        best_fit = fitness[0]
+        history[1].append(best_fit)
+        print(colors.BOLD + colors.MAGENTA + 'Best: ' + str(best_fit) + colors.END + '\n')
+
+        update_plot(history, generation)
+
+        if best_fit > overall_best:
+            overall_best = best_fit
+            nn.toJSON('save/snake_nn_' + now.strftime('%Y%m%d-%H:%M') + '.json', next_population[0])
+            print('-----------------')
+            print(colors.BOLD + colors.YELLOW + 'NEW HIGH SCORE!!!' + colors.END)
+            print('-----------------\n')
+
         population = next_population
