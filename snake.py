@@ -211,7 +211,7 @@ class Game:
             pygame.display.set_caption('Snake - The Genetic Algorithm')
             icon = pygame.image.load('resources/icon.png')
             pygame.display.set_icon(icon)
-            self.font = pygame.font.Font('font.ttf', 30)
+            self.font = pygame.font.Font('resources/font.ttf', 30)
 
 
             self.cell_size = int(pygame.display.Info().current_w / 100)
