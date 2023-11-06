@@ -15,7 +15,6 @@ MUTATION_PROBABILITY = 0.1
 
 # MISC
 SHOW = True
-WAIT_STEPS = 500
 FPS = None
 DPI = 100
 
@@ -45,15 +44,14 @@ def calculate_fitness(population, game):
     for _ in population:
         game.snakes.append(snake.Snake())
 
-    step = 0
     max_score = 0
     prev_best = game.best_snake()
 
-    while not game.stop and step < WAIT_STEPS:
+    while not game.stop:
         if game.is_stopped():
             game.end()
             return []
-        game.render(step=step)
+        game.render()
 
         for i in range(POPULATION_SIZE):
             inputs = game.snakes[i].get_inputs()
@@ -71,8 +69,6 @@ def calculate_fitness(population, game):
             best = game.best_snake()
             if best.score > max_score or best is not prev_best:
                 max_score = best.score
-                step = 0
-            step += 1
             prev_best = best
 
     fitness = []

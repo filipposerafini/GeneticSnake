@@ -22,8 +22,11 @@ CYAN = (0, 255, 255)
 MAGENTA = (255, 0, 255)
 
 # FPS
-DEBUG_FPS = 10
+DEBUG_FPS = 20
 FPS = 50
+
+#WAIT_STEPS
+WAIT_STEPS = 500
 
 class Apple:
 
@@ -55,6 +58,7 @@ class Snake:
         self.apple = Apple(self)
         self.score = 0
         self.dead = False
+        self.step = WAIT_STEPS
 
     def turn_right(self):
         self.direction += 1
@@ -243,12 +247,15 @@ class Game:
                     snake.dead = True
                 else:
                     if snake.eat_apple():
-                        snake.score += 1
+                        snake.score += snake.step / WAIT_STEPS
+                        snake.step = WAIT_STEPS
                         snake.apple = Apple(snake)
-                    # else:
-                        # snake.score -= 0.002
+                    else:
+                        snake.step -= 1
+                    if snake.step <= 0:
+                        snake.dead = True
 
-    def render(self, step=None):
+    def render(self):
         if not self.show:
             return
         self.screen.fill(BLACK)
@@ -268,8 +275,7 @@ class Game:
             score_rect.topright = (CELL_COUNT * self.cell_size, 1.5 * self.cell_size)
             self.screen.blit(score_surf, score_rect)
 
-        if step is not None:
-            step_surf = self.font.render(str(step), True, LIGHT_GRAY)
+            step_surf = self.font.render(str(best.step), True, LIGHT_GRAY)
             step_rect = step_surf.get_rect()
             step_rect.topright = (CELL_COUNT * self.cell_size, 3 * self.cell_size)
             self.screen.blit(step_surf, step_rect)
