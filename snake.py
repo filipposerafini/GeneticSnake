@@ -353,6 +353,7 @@ if __name__ == '__main__':
         filename = sys.argv[1]
         if filename.endswith('.json'):
             neural_net = nn.fromJSON(filename)
+            neural_net.draw()
         else:
             print('usage: snake.py [snake_nn.json]')
             sys.exit()
