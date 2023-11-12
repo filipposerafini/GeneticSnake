@@ -283,7 +283,7 @@ class GameOver(Page):
                 elif total[0] < total[1]:
                     self.display_text('Viper Won!', height / 8, snake.GREEN, (width / 2, height - 4 * cell_size))
                 else:
-                    self.display_text('Draw!', height / 8, snake.YELLOW, (width / 2, 17 * height / 18))
+                    self.display_text('Draw!', height / 8, snake.YELLOW, (width / 2, height - 4 * cell_size))
         self.buttons['Menu'] = self.display_text('Return', height / 10, snake.WHITE, (2 * cell_size, height - 3 * cell_size), anchor='left')
         self.buttons['Restart'] = self.display_text('Restart', height / 10, snake.WHITE, (width - 2 * cell_size, height - 3 * cell_size), anchor='right')
 
