@@ -2,8 +2,9 @@ import snake
 import nn
 import sys
 import random
-import time
 import numpy as np
+import pygame
+from pygame.locals import *
 from datetime import datetime
 from matplotlib import pyplot as plt
 
@@ -15,7 +16,7 @@ MUTATION_PROBABILITY = 0.1
 
 # MISC
 SHOW = True
-FPS = None
+FPS = 300
 DPI = 100
 
 now = datetime.now()
@@ -33,38 +34,39 @@ def initial_population(start=None):
     population = []
     for _ in range(0, POPULATION_SIZE):
         if start is None:
-            population.append(nn.NeuralNetwork(generation=1))
+            population.append(nn.NeuralNetwork())
         else:
             population.append(start)
     return population
 
-def calculate_fitness(population, game):
+def calculate_fitness(population, game, screen, cell_size, font, clock):
 
-    game.reset()
-    for _ in population:
-        game.snakes.append(snake.Snake())
+    game = game.restart()
 
     max_score = 0
     prev_best = game.best_snake()
 
-    while not game.stop:
+    running = True
+
+    while running:
         if game.is_stopped():
             game.end()
             return []
-        game.render()
+        game.render(screen, cell_size, font)
 
         for i in range(POPULATION_SIZE):
-            inputs = game.snakes[i].get_inputs()
+            inputs = game.snakes[i].get_inputs(game.apples[i])
 
             action = np.argmax(population[i].compute_outputs(inputs))
             if action == 0:
                 game.snakes[i].turn_right()
             elif action == 1:
                 game.snakes[i].turn_left()
-        game.update(FPS)
 
-        if all(s.dead for s in game.snakes):
-            game.stop = True
+        game.update(clock)
+
+        if all(s.lives <= 0 for s in game.snakes):
+            running = False
         else:
             best = game.best_snake()
             if best.score > max_score or best is not prev_best:
@@ -86,8 +88,8 @@ def select_parents(population, fitness):
         parents_fitness.append(fitness[i])
     return parents, parents_fitness
 
-def crossover(mother, father, generation):
-    offspring = nn.NeuralNetwork(generation=generation)
+def crossover(mother, father):
+    offspring = nn.NeuralNetwork()
     for i in range(offspring.size):
         if np.random.random() >= 0.5:
             offspring.weights[i] = mother.weights[i]
@@ -101,9 +103,9 @@ def mutate(offspring):
             offspring.weights[i] += np.random.randn()
     return offspring
 
-def genetic_algorithm(population, game, generation):
+def genetic_algorithm(population, game, screen, cell_size, font, clock):
     # Calculate Fitness
-    fitness = calculate_fitness(population, game)
+    fitness = calculate_fitness(population, game, screen, cell_size, font, clock)
     if not fitness:
         return [], []
     # Select Parents
@@ -115,7 +117,7 @@ def genetic_algorithm(population, game, generation):
         mother = parents[0]
         father = parents[1]
         # Crossover
-        offspring = crossover(mother, father, generation)
+        offspring = crossover(mother, father)
         # Mutate
         offspring = mutate(offspring)
         next_population.append(offspring)
@@ -162,18 +164,22 @@ if __name__ == '__main__':
         print('usage: genetic.py [snake_nn.json]')
         sys.exit()
 
-    game = snake.Game(show=SHOW)
+    cell_size, screen = snake.init_screen('Python VS Viper - Genetic Alghoritm')
+    font = pygame.font.Font('resources/font.ttf', 30)
+    clock = pygame.time.Clock()
+
+    game = snake.Game(POPULATION_SIZE, FPS, train=True)
     generation = 0
     overall_best = 0
     history = init_plot()
 
     while True:
         generation += 1
-        next_population, fitness = genetic_algorithm(population, game, generation)
+        next_population, fitness = genetic_algorithm(population, game, screen, cell_size, font, clock)
         if not next_population and not fitness:
             break
         
-        print(colors.BOLD + 'Generation # ' + colors.YELLOW + str(generation) + colors.END + '\n')
+        print(colors.BOLD + 'Generation # ' + colors.YELLOW + str(generation) + colors.END + 20 * ' -' + '\n')
 
         avg_fit = np.average(fitness)
         history[0].append(avg_fit)

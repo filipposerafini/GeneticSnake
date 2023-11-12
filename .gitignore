@@ -1,3 +1,6 @@
-
-__pycache__/
+.easy
+.normal
+.hard
+.settings
 save/
+__pycache__/

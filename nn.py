@@ -21,8 +21,7 @@ DPI = 100
 
 class NeuralNetwork:
 
-    def __init__(self, generation=0, inputs=INPUTS, outputs=OUTPUTS, hidden=HIDDEN, weights=None):
-        self.generation = generation
+    def __init__(self, inputs=INPUTS, outputs=OUTPUTS, hidden=HIDDEN, weights=None):
         self.layers = [inputs] + hidden + [outputs]
         self.h_layers = len(hidden)
         self.size = 0
@@ -124,4 +123,4 @@ def fromJSON(filename):
         inputs = loaded['layers'][0]
         outputs = loaded['layers'][-1]
         hidden = loaded['layers'][1:-1]
-        return NeuralNetwork(generation=loaded['generation'],inputs=inputs, outputs=outputs, hidden=hidden, weights=loaded['weights'])
+        return NeuralNetwork(inputs=inputs, outputs=outputs, hidden=hidden, weights=loaded['weights'])
