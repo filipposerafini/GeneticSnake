@@ -12,11 +12,11 @@ To install them: `pip install -r requirements.txt`.
 
 This project consists of the following modules:
 
-#### nn.py
+### nn.py
 
 This module contains the neural network code.
 
-#### snake.py
+### snake.py
 
 This module contains the basic snake game code.
 
@@ -26,7 +26,7 @@ It can be used to run a *debug* session:
 
 The optional argument `[filename]` can be used to test a previously trained neural network.
 
-#### game.py
+### game.py
 
 This module contains the GUI and the overall game handling code, refactored from my previous project [PythonVsViper](https://github.com/filipposerafini/PythonVsViper).
 
@@ -38,7 +38,7 @@ There exists 3 game modes:
 2. **Two Players**: Play this mode to challenge your friends. Steer the blue snake with ` ↑ `,` ← `,` ↓ `,` → ` keys, and steer the green snake with ` W `,` A `,` S `,` D ` keys.
 3. **Player VS AI**: Play this mode to challenge the AI. The AI uses the the neural network saved in `snake_ia.json` JSON file.
 
-#### genetic.py
+### genetic.py
 
 This module contains the genetic algorithm code, and it is used to train the neural network to play the game.
 
